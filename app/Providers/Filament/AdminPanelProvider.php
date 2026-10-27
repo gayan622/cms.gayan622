@@ -8,6 +8,7 @@ use App\Filament\Resources\CategoryResource;
 use App\Filament\Resources\ContactMessageResource;
 use App\Filament\Resources\CouponResource;
 use App\Filament\Resources\ManufacturerResource;
+use App\Filament\Resources\MovieResource;
 use App\Filament\Resources\OrderResource;
 use App\Filament\Resources\ProductResource;
 use App\Filament\Resources\ProjectResource;
@@ -26,6 +27,7 @@ use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\AuthenticateSession;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use App\Filament\Widgets\MovieAnalyticsOverview;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -59,10 +61,13 @@ class AdminPanelProvider extends PanelProvider
                 \App\Filament\Widgets\StatsWidget::class,
                 \App\Filament\Widgets\RevenueChartWidget::class,
                 \App\Filament\Widgets\RecentOrdersWidget::class,
+                 MovieAnalyticsOverview::class, // ➕ Force register the stats widget here
             ])
             ->pages([
                 Dashboard::class,
                 ReportsPage::class,
+                \App\Filament\Pages\Analytics::class,
+                \App\Filament\Pages\MovieViewersReport::class,
             ])
             ->resources([
                 ProjectResource::class,
@@ -73,6 +78,7 @@ class AdminPanelProvider extends PanelProvider
                 CouponResource::class,
                 OrderResource::class,
                 SeoSettingResource::class,
+                MovieResource::class,
             ])
             ->middleware([
                 EncryptCookies::class,

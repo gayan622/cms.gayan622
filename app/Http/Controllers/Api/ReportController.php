@@ -155,4 +155,66 @@ class ReportController extends Controller
 
         return response()->json(['data' => $coupons]);
     }
+
+    // ── GET /api/reports/movie-views ──────────────────────────────────────────
+    // ?period=daily|weekly|monthly&from=&to=
+    public function movieViews(Request $request): JsonResponse
+    {
+        $period = $request->get('period', 'monthly');
+        $from   = $request->filled('from') ? Carbon::parse($request->from) : Carbon::now()->subMonths(6);
+        $to     = $request->filled('to')   ? Carbon::parse($request->to)   : Carbon::now();
+
+        // 1. Determine group and label configurations based on selected period
+        $groupBy = match ($period) {
+            'daily'   => DB::raw('DATE(created_at)'),
+            'weekly'  => DB::raw('YEARWEEK(created_at, 1)'),
+            default   => DB::raw('DATE_FORMAT(created_at, "%Y-%m")'),
+        };
+
+        $label = match ($period) {
+            'daily'  => DB::raw('DATE_FORMAT(created_at, "%d %b")'),
+            'weekly' => DB::raw('DATE_FORMAT(MIN(created_at), "%d %b")'),
+            default  => DB::raw('DATE_FORMAT(created_at, "%b %Y")'),
+        };
+
+        // 2. Aggregate timeline trend data (Total views vs Unique IPs)
+        $timelineData = DB::table('movie_views')
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy($groupBy)
+            ->select([
+                $label->as('label'),
+                DB::raw('COUNT(*) as total_views'),
+                DB::raw('COUNT(DISTINCT ip_address) as unique_viewers'),
+            ])
+            ->orderBy(DB::raw('MIN(created_at)'))
+            ->get();
+
+        // 3. Extract top-performing movies by total streams
+        $topMovies = DB::table('movie_views')
+            ->whereBetween('created_at', [$from, $to])
+            ->groupBy('tmdb_id')
+            ->select([
+                'tmdb_id',
+                DB::raw('COUNT(*) as total_views'),
+                DB::raw('COUNT(DISTINCT ip_address) as unique_viewers'),
+            ])
+            ->orderByDesc('total_views')
+            ->limit($request->get('limit', 10))
+            ->get();
+
+        // 4. Global overview summary indicators for quick reading
+        $totalViewsAllTime  = DB::table('movie_views')->count();
+        $uniqueViewersAllTime = DB::table('movie_views')->distinct('ip_address')->count('ip_address');
+
+        return response()->json([
+            'data' => [
+                'summary' => [
+                    'all_time_total_views'    => $totalViewsAllTime,
+                    'all_time_unique_viewers' => $uniqueViewersAllTime,
+                ],
+                'timeline'   => $timelineData,
+                'top_movies' => $topMovies,
+            ],
+        ]);
+    }
 }
